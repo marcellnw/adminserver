@@ -302,3 +302,10 @@ footer {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+/* ================= LOGIN MODE (HIDE MENU) ================= */
+body.login-mode header,
+body.login-mode .menu-btn,
+body.login-mode .nav-overlay {
+    display: none !important;
+}
