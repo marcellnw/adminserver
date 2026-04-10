@@ -25,8 +25,7 @@ body {
     min-height: 100vh;
 }
 
-/* ================= 🔒 LOGIN MODE (FIX FINAL) ================= */
-/* HANYA HILANGKAN MENU SAAT LOGIN */
+/* ================= 🔒 LOGIN MODE ================= */
 body.login-mode header,
 body.login-mode .menu-btn,
 body.login-mode .nav-overlay,
@@ -74,11 +73,12 @@ header {
     height: 100%;
     background: rgba(0, 0, 0, 0.85);
     backdrop-filter: blur(15px);
-    transition: 0.4s;
+    transition: 0.4s ease;
     display: flex;
     flex-direction: column;
     padding-top: 80px;
     border-right: 1px solid var(--emas-coklat);
+    z-index: 999; /* FIX: biar selalu di atas */
 }
 
 .nav-overlay.active {
