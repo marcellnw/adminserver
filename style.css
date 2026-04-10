@@ -25,13 +25,7 @@ body {
     min-height: 100vh;
 }
 
-/* ================= 🔒 LOGIN MODE ================= */
-body.login-mode header,
-body.login-mode .menu-btn,
-body.login-mode .nav-overlay,
-body.login-mode .fa-bars {
-    display: none !important;
-}
+
 
 /* ================= PARTICLES ================= */
 #tsparticles {
