@@ -1,3 +1,4 @@
+// ================= LOGIN =================
 async function login() {
     const username = document.getElementById("login_user").value;
     const password = document.getElementById("login_pass").value;
@@ -29,7 +30,6 @@ async function login() {
     }
 }
 
-
 // ================= CONFIG =================
 let currentCategory = 'announcement';
 
@@ -51,6 +51,15 @@ function toggleMenu() {
 }
 
 function showPage(pageId) {
+    const token = localStorage.getItem("auth_token");
+
+    // 🔐 PROTEKSI LOGIN
+    if (!token && pageId !== "loginPage") {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.getElementById("loginPage").classList.add("active");
+        return;
+    }
+
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
     document.getElementById('navMenu').classList.remove('active');
@@ -109,6 +118,15 @@ async function sendToDiscord() {
     btn.innerText = "Mengirim...";
     btn.disabled = true;
 
+    const token = localStorage.getItem("auth_token");
+
+    // 🔐 PROTEKSI TOKEN
+    if (!token) {
+        showToast("❌ Harus login dulu", "error");
+        showPage("loginPage");
+        return;
+    }
+
     const fields = formConfig[currentCategory];
 
     let embedData = {
@@ -141,7 +159,10 @@ async function sendToDiscord() {
     try {
         const response = await fetch('/api/webhook', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // 🔥 tambahan security
+            },
             body: JSON.stringify({
                 category: currentCategory,
                 embed: embedData
@@ -172,8 +193,12 @@ switchForm('announcement');
 window.onload = () => {
     const token = localStorage.getItem("auth_token");
 
+    // 🔐 AUTO LOGIN CHECK
     if (!token) {
         document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
         document.getElementById("loginPage").classList.add("active");
+    } else {
+        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+        document.getElementById("page1").classList.add("active");
     }
 };
