@@ -25,6 +25,15 @@ body {
     min-height: 100vh;
 }
 
+/* ================= 🔒 LOGIN MODE (FIX FINAL) ================= */
+/* HANYA HILANGKAN MENU SAAT LOGIN */
+body.login-mode header,
+body.login-mode .menu-btn,
+body.login-mode .nav-overlay,
+body.login-mode .fa-bars {
+    display: none !important;
+}
+
 /* ================= PARTICLES ================= */
 #tsparticles {
     position: fixed;
@@ -44,6 +53,7 @@ header {
     align-items: center;
 }
 
+/* ================= MENU BUTTON ================= */
 .menu-btn {
     font-size: 24px;
     color: var(--emas-coklat);
@@ -270,12 +280,8 @@ footer {
 
 /* ================= FLOAT ================= */
 @keyframes floating {
-    0%, 100% {
-        transform: translateY(0);
-    }
-    50% {
-        transform: translateY(-10px);
-    }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
 }
 
 /* ================= TOAST ================= */
@@ -301,11 +307,4 @@ footer {
     .gallery {
         grid-template-columns: repeat(2, 1fr);
     }
-}
-
-/* ================= LOGIN MODE (HIDE MENU) ================= */
-body.login-mode header,
-body.login-mode .menu-btn,
-body.login-mode .nav-overlay {
-    display: none !important;
 }
