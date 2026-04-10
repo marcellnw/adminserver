@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO & Professional Meta -->
+    <title>EternalSMP Admin Panel</title>
+    <meta name="description" content="Dashboard admin EternalSMP untuk manajemen webhook Discord, event, dan sistem server.">
+    
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Background Particle -->
+    <div id="tsparticles"></div>
+
+    <!-- HEADER -->
+    <header>
+        <div class="menu-btn" onclick="toggleMenu()">
+            <i class="fas fa-bars"></i>
+        </div>
+
+        <nav class="nav-overlay" id="navMenu">
+            <a href="#" onclick="showPage('page1')">Admin</a>
+            <a href="#" onclick="showPage('page2')">Dashboard</a>
+            <a href="#" onclick="showPage('page2')">Server</a>
+            <a href="#" onclick="showPage('page2')">Quest</a>
+            <a href="#" onclick="showPage('page3')">Update</a>
+            <a href="https://paneldiscord-delta.vercel.app/#">Console</a>
+        </nav>
+    </header>
+
+    <!-- PAGE 1 -->
+    <main id="page1" class="page active">
+        <div class="logo-container">
+            <img src="https://github.com/marcellnw/paneleternalsmp/blob/main/1775664361126.png?raw=true" class="main-logo">
+            
+            <h1>ETERNALSMP PANEL</h1>
+
+            <p class="description">
+                Dashboard khusus administrator untuk manajemen notifikasi dan pengumuman server 
+                secara otomatis ke Discord dengan sistem yang cepat dan modern.
+            </p>
+
+            <button class="btn-mulai" onclick="showPage('page2')">
+                MULAI
+            </button>
+        </div>
+
+        <footer>&copy; 2021–2026 EternalSMP Server. All Rights Reserved.</footer>
+    </main>
+
+    <!-- PAGE 2 -->
+    <main id="page2" class="page">
+        <h2 style="font-family: 'Cinzel'; margin-bottom: 20px;">
+            Webhook Dispatcher
+        </h2>
+        
+        <div class="button-grid">
+            <button class="category-btn active" onclick="switchForm('announcement', this)">Announcement</button>
+            <button class="category-btn" onclick="switchForm('quest', this)">Quest Server</button>
+            <button class="category-btn" onclick="switchForm('event', this)">Event</button>
+            <button class="category-btn" onclick="switchForm('update', this)">Update</button>
+            <button class="category-btn" onclick="switchForm('info', this)">Info Server</button>
+        </div>
+
+        <div class="form-container">
+            <form id="webhookForm">
+                <div id="formFields"></div>
+
+                <button type="button" class="btn-send" onclick="sendToDiscord()">
+                    KIRIM KE DISCORD
+                </button>
+            </form>
+        </div>
+
+        <footer>&copy; 2026 EternalSMP Server. All Rights Reserved.</footer>
+    </main>
+
+    <!-- PAGE 3 -->
+    <main id="page3" class="page">
+        <h2 style="font-family: 'Cinzel'; color: var(--emas-coklat);">
+            Tentang Website
+        </h2>
+
+        <div class="info-card">
+            <p>
+                Sistem ini dikembangkan untuk memudahkan staf dalam memberikan informasi 
+                terstruktur kepada pemain melalui integrasi API Webhook Discord.
+            </p>
+        </div>
+
+        <div class="gallery">
+            <img src="https://picsum.photos/200/200?random=1">
+            <img src="https://picsum.photos/200/200?random=2">
+            <img src="https://picsum.photos/200/200?random=3">
+            <img src="https://picsum.photos/200/200?random=4">
+            <img src="https://picsum.photos/200/200?random=5">
+            <img src="https://picsum.photos/200/200?random=6">
+        </div>
+
+        <footer>&copy; 2026 EternalSMP Server. All Rights Reserved.</footer>
+    </main>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+    <script src="script.js"></script>
+
+</body>
+</html>
