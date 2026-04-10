@@ -168,3 +168,12 @@ async function sendToDiscord() {
 
 // ================= INIT =================
 switchForm('announcement');
+
+window.onload = () => {
+    const token = localStorage.getItem("auth_token");
+
+    if (!token) {
+        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+        document.getElementById("loginPage").classList.add("active");
+    }
+};
