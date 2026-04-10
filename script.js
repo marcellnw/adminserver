@@ -19,10 +19,9 @@ async function login() {
 
             alert("Login berhasil");
 
-            // 🔥 HILANGKAN LOGIN MODE
-            document.body.classList.remove("login-mode");
+            // 🔥 SEMBUNYIKAN LOGIN PAGE (JANGAN HAPUS STRUKTUR)
+            document.getElementById("loginPage").style.display = "none";
 
-            document.getElementById("loginPage").classList.remove("active");
             showPage("page1");
         } else {
             alert("Login gagal");
@@ -44,7 +43,7 @@ tsParticles.load("tsparticles", {
         shape: { type: "circle" },
         opacity: { value: 0.5, anim: { enable: true, speed: 1, opacity_min: 0.1 } },
         size: { value: 3, random: true },
-        move: { enable: true, speed: 1, direction: "none", out_mode: "out" }
+        move: { enable: true, speed: 1 }
     }
 });
 
@@ -53,20 +52,24 @@ function toggleMenu() {
     document.getElementById('navMenu').classList.toggle('active');
 }
 
+// 🔥 FIX UTAMA ADA DI SINI
 function showPage(pageId) {
     const token = localStorage.getItem("auth_token");
 
     // 🔐 PROTEKSI LOGIN
-    if (!token && pageId !== "loginPage") {
-        document.body.classList.add("login-mode");
+    if (!token) {
+        document.getElementById("loginPage").style.display = "flex";
 
-        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.page').forEach(p => {
+            if (p.id !== "loginPage") p.classList.remove('active');
+        });
+
         document.getElementById("loginPage").classList.add("active");
         return;
     }
 
-    // 🔥 MODE NORMAL
-    document.body.classList.remove("login-mode");
+    // 🔓 SUDAH LOGIN → SEMBUNYIKAN LOGIN PAGE
+    document.getElementById("loginPage").style.display = "none";
 
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
@@ -118,11 +121,10 @@ function showToast(message, type = "success") {
     toast.innerText = message;
 
     document.body.appendChild(toast);
-
     setTimeout(() => toast.remove(), 3000);
 }
 
-// ================= SEND WEBHOOK (SECURE) =================
+// ================= SEND WEBHOOK =================
 async function sendToDiscord() {
     const btn = document.querySelector('.btn-send');
     btn.innerText = "Mengirim...";
@@ -130,11 +132,9 @@ async function sendToDiscord() {
 
     const token = localStorage.getItem("auth_token");
 
-    // 🔐 PROTEKSI TOKEN
     if (!token) {
         showToast("❌ Harus login dulu", "error");
-        document.body.classList.add("login-mode");
-        showPage("loginPage");
+        document.getElementById("loginPage").style.display = "flex";
         return;
     }
 
@@ -183,14 +183,13 @@ async function sendToDiscord() {
         const result = await response.json();
 
         if (response.ok) {
-            showToast(`✅ ${currentCategory.toUpperCase()} berhasil dikirim`);
+            showToast("✅ Berhasil dikirim");
             document.getElementById('webhookForm').reset();
         } else {
-            showToast(result.error || "❌ Gagal mengirim", "error");
+            showToast(result.error || "❌ Gagal", "error");
         }
 
     } catch (err) {
-        console.error(err);
         showToast("❌ Server error", "error");
     }
 
@@ -205,14 +204,17 @@ window.onload = () => {
     const token = localStorage.getItem("auth_token");
 
     if (!token) {
-        // 🔒 MODE LOGIN
-        document.body.classList.add("login-mode");
+        // 🔒 TAMPILKAN LOGIN FULL
+        document.getElementById("loginPage").style.display = "flex";
 
-        document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+        document.querySelectorAll(".page").forEach(p => {
+            if (p.id !== "loginPage") p.classList.remove("active");
+        });
+
         document.getElementById("loginPage").classList.add("active");
     } else {
-        // 🔓 MODE NORMAL
-        document.body.classList.remove("login-mode");
+        // 🔓 MASUK NORMAL
+        document.getElementById("loginPage").style.display = "none";
 
         document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
         document.getElementById("page1").classList.add("active");
