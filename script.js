@@ -1,36 +1,4 @@
-// ================= LOGIN =================
-async function login() {
-    const username = document.getElementById("login_user").value;
-    const password = document.getElementById("login_pass").value;
 
-    try {
-        const res = await fetch("/api/login", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ username, password })
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-            localStorage.setItem("auth_token", data.token);
-
-            alert("Login berhasil");
-
-            // 🔥 SEMBUNYIKAN LOGIN PAGE (JANGAN HAPUS STRUKTUR)
-            document.getElementById("loginPage").style.display = "none";
-
-            showPage("page1");
-        } else {
-            alert("Login gagal");
-        }
-
-    } catch (err) {
-        alert("Server error");
-    }
-}
 
 // ================= CONFIG =================
 let currentCategory = 'announcement';
