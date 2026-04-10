@@ -19,6 +19,9 @@ async function login() {
 
             alert("Login berhasil");
 
+            // 🔥 HILANGKAN LOGIN MODE
+            document.body.classList.remove("login-mode");
+
             document.getElementById("loginPage").classList.remove("active");
             showPage("page1");
         } else {
@@ -55,14 +58,21 @@ function showPage(pageId) {
 
     // 🔐 PROTEKSI LOGIN
     if (!token && pageId !== "loginPage") {
+        document.body.classList.add("login-mode");
+
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
         document.getElementById("loginPage").classList.add("active");
         return;
     }
 
+    // 🔥 MODE NORMAL
+    document.body.classList.remove("login-mode");
+
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
-    document.getElementById('navMenu').classList.remove('active');
+
+    const nav = document.getElementById('navMenu');
+    if (nav) nav.classList.remove('active');
 
     if (pageId === 'page2') switchForm('announcement');
 }
@@ -123,6 +133,7 @@ async function sendToDiscord() {
     // 🔐 PROTEKSI TOKEN
     if (!token) {
         showToast("❌ Harus login dulu", "error");
+        document.body.classList.add("login-mode");
         showPage("loginPage");
         return;
     }
@@ -161,7 +172,7 @@ async function sendToDiscord() {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}` // 🔥 tambahan security
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
                 category: currentCategory,
@@ -193,11 +204,16 @@ switchForm('announcement');
 window.onload = () => {
     const token = localStorage.getItem("auth_token");
 
-    // 🔐 AUTO LOGIN CHECK
     if (!token) {
+        // 🔒 MODE LOGIN
+        document.body.classList.add("login-mode");
+
         document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
         document.getElementById("loginPage").classList.add("active");
     } else {
+        // 🔓 MODE NORMAL
+        document.body.classList.remove("login-mode");
+
         document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
         document.getElementById("page1").classList.add("active");
     }
