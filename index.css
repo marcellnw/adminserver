@@ -1,0 +1,1021 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useScroll, useTransform } from "motion/react";
+import Particles, { initParticlesEngine } from "@tsparticles/react";
+import { loadSlim } from "@tsparticles/slim";
+import { 
+  Menu, 
+  X, 
+  Send, 
+  Info, 
+  LayoutDashboard, 
+  Server, 
+  Scroll, 
+  RefreshCw, 
+  Terminal,
+  ExternalLink,
+  Users,
+  Cpu,
+  Activity,
+  ShieldAlert,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  AlertCircle
+} from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+
+// Konfigurasi Webhook
+const WEBHOOK_ANNOUNCEMENT = "https://discord.com/api/webhooks/1491686276414570611/pf1ZGDg0uFsdwbCE7ZwTPNVfCvr56n-nXaD5Jc9FUSigt3NdHGajUjEXJvkp7slJ-wyZ";
+const WEBHOOK_DEFAULT = "https://discord.com/api/webhooks/1396156267994812497/GmgoFVHtJIYVvpzZ_2pLic_Bz5DS3H9vpNNGoN7A5LCTKUkaQZJ9WMWT_CwMZb_JgkRP";
+const ROLE_ID = "1472246426414350336"; // Role ID LegendofFeeloria[S15]
+
+const FORM_CONFIG = {
+  announcement: ['Judul', 'Kategori', 'Status', 'Description', 'Catatan'],
+  quest: ['Nama', 'Type', 'Tier', 'Description', 'Progress', 'Reward'],
+  event: ['Nama Event', 'Waktu', 'Lokasi', 'Description', 'Syarat'],
+  update: ['Versi', 'Tanggal', 'Log Perubahan', 'New Update', 'Buff', 'Fix'],
+  info: ['Topik', 'Description']
+};
+
+type Category = keyof typeof FORM_CONFIG;
+
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error';
+}
+
+export default function App() {
+  const [init, setInit] = useState(false);
+  const [activePage, setActivePage] = useState("home");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [currentCategory, setCurrentCategory] = useState<Category>("announcement");
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [isSending, setIsSending] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  // Quick Action States
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+
+  // AI Assistant States
+  const [aiModel, setAiModel] = useState<"gemini" | "chatgpt">("gemini");
+  const [aiMessage, setAiMessage] = useState("");
+  const [aiHistory, setAiHistory] = useState<{ role: 'user' | 'ai', content: string }[]>(() => {
+    const saved = localStorage.getItem('eternal_ai_history');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Parallax Effect
+  const { scrollY } = useScroll();
+  const parallaxY = useTransform(scrollY, [0, 1000], [0, -200]);
+
+  useEffect(() => {
+    localStorage.setItem('eternal_ai_history', JSON.stringify(aiHistory));
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [aiHistory]);
+
+  // Initialize Particles
+  useEffect(() => {
+    initParticlesEngine(async (engine) => {
+      await loadSlim(engine);
+    }).then(() => {
+      setInit(true);
+    });
+  }, []);
+
+  const addToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3000);
+  }, []);
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleClearCache = async () => {
+    setIsClearingCache(true);
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setIsClearingCache(false);
+    addToast("Cache cleared successfully", "success");
+  };
+
+  const handleSyncDatabase = async () => {
+    setIsSyncing(true);
+    setSyncProgress(0);
+    for (let i = 0; i <= 100; i += 20) {
+      setSyncProgress(i);
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+    setIsSyncing(false);
+    addToast("Database synced successfully", "success");
+  };
+
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsGeneratingReport(false);
+    setShowReportModal(true);
+  };
+
+  const handleAiChat = async (overrideMessage?: string) => {
+    const msg = overrideMessage || aiMessage;
+    if (!msg.trim()) return;
+
+    const newUserMsg = { role: 'user' as const, content: msg };
+    setAiHistory(prev => [...prev, newUserMsg]);
+    setAiMessage("");
+    setIsAiLoading(true);
+
+    try {
+      const response = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: msg,
+          model: aiModel,
+          systemPrompt: "You are the EternalSMP AI Assistant. You help administrators manage the server. Be professional, slightly fantasy-themed, and concise."
+        })
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+
+      setAiHistory(prev => [...prev, { role: 'ai', content: data.response }]);
+    } catch (err: any) {
+      addToast(err.message || "AI Request Failed", "error");
+    } finally {
+      setIsAiLoading(true);
+      // Small delay for animation feel
+      setTimeout(() => setIsAiLoading(false), 500);
+    }
+  };
+
+  const sendToDiscord = async () => {
+    if (!formData['judul'] && !formData['nama'] && !formData['nama_event'] && !formData['versi'] && !formData['topik']) {
+      addToast("Harap isi field utama!", "error");
+      return;
+    }
+
+    setIsSending(true);
+    const fields = FORM_CONFIG[currentCategory];
+    const thumbnail = "https://github.com/marcellnw/paneleternalsmp/blob/main/1775664361126.png?raw=true";
+    const targetWebhook = (currentCategory === 'announcement') ? WEBHOOK_ANNOUNCEMENT : WEBHOOK_DEFAULT;
+
+    const embedFields = fields
+      .filter(f => !['Description', 'Log Perubahan', 'Reward'].includes(f))
+      .map(f => ({
+        name: f,
+        value: formData[f.toLowerCase().replace(/ /g, '_')] || "-",
+        inline: true
+      }));
+
+    const payload = {
+      content: `<@&${ROLE_ID}>`,
+      embeds: [{
+        title: currentCategory.toUpperCase(),
+        color: parseInt("B22222", 16),
+        description: formData['description'] || formData['log_perubahan'] || formData['reward'] || "",
+        fields: embedFields,
+        timestamp: new Date().toISOString(),
+        thumbnail: { url: thumbnail },
+        footer: { text: "EternalSMP Panel • 2026" }
+      }]
+    };
+
+    try {
+      const response = await fetch(targetWebhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        addToast(`Notifikasi ${currentCategory.toUpperCase()} berhasil dikirim!`);
+        setFormData({});
+      } else {
+        addToast('Gagal mengirim ke Discord. Periksa Webhook.', "error");
+      }
+    } catch (err) {
+      console.error(err);
+      addToast('Terjadi kesalahan koneksi.', "error");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const navItems = [
+    { id: 'home', label: 'ADM', icon: Terminal },
+    { id: 'dashboard', label: 'DSH', icon: LayoutDashboard },
+    { id: 'server', label: 'SVR', icon: Server },
+    { id: 'info', label: 'INF', icon: Info },
+    { id: 'ai', label: 'AI', icon: Cpu },
+    { id: 'gallery', label: 'GLR', icon: Scroll },
+    { id: 'console', label: 'CON', icon: ExternalLink, href: 'https://paneldiscord-delta.vercel.app/#' },
+  ];
+
+  const particlesOptions = useMemo(() => ({
+    particles: {
+      number: { value: 60, density: { enable: true, area: 800 } },
+      color: { value: "#DDA0DD" },
+      shape: { type: "circle" },
+      opacity: { value: 0.3, animation: { enable: true, speed: 1, minimumValue: 0.1 } },
+      size: { value: { min: 1, max: 2 } },
+      move: { enable: true, speed: 0.5, direction: "none" as const, outModes: { default: "out" as const } }
+    },
+    interactivity: {
+      events: { onHover: { enable: true, mode: "bubble" } },
+      modes: { bubble: { distance: 200, size: 4, duration: 2, opacity: 0.8 } }
+    },
+    detectRetina: true,
+  }), []);
+
+  return (
+    <div className="flex flex-col md:flex-row h-screen bg-bg overflow-hidden">
+      {init && (
+        <Particles
+          id="tsparticles"
+          options={particlesOptions}
+          className="fixed inset-0 -z-10 pointer-events-none"
+        />
+      )}
+
+      {/* Desktop Navigation Rail */}
+      <nav className={`nav-rail ${isSidebarOpen ? 'nav-rail-open' : 'nav-rail-closed'}`}>
+        {navItems.map((item) => (
+          item.href ? (
+            <a
+              key={item.id}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nav-icon group relative"
+              title="CONSOLE (EXTERNAL)"
+            >
+              <item.icon size={20} />
+              <span className="absolute left-full ml-4 px-2 py-1 bg-accent text-black text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[100]">
+                EXTERNAL CONSOLE
+              </span>
+            </a>
+          ) : (
+            <div
+              key={item.id}
+              onClick={() => setActivePage(item.id)}
+              className={`nav-icon group relative ${activePage === item.id ? 'active' : ''}`}
+              title={item.id.toUpperCase()}
+            >
+              <item.icon size={20} />
+              <span className="absolute left-full ml-4 px-2 py-1 bg-accent text-black text-[10px] font-bold opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-[100]">
+                {item.id.toUpperCase()}
+              </span>
+            </div>
+          )
+        ))}
+      </nav>
+
+      {/* Mobile Navigation Bar */}
+      <nav className="nav-mobile">
+        {navItems.map((item) => (
+          item.href ? (
+            <a
+              key={item.id}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-col items-center gap-1 text-text-dim"
+            >
+              <item.icon size={18} />
+              <span className="text-[8px]">{item.label}</span>
+            </a>
+          ) : (
+            <div
+              key={item.id}
+              onClick={() => setActivePage(item.id)}
+              className={`flex flex-col items-center gap-1 transition-colors ${activePage === item.id ? 'text-accent' : 'text-text-dim'}`}
+            >
+              <item.icon size={18} />
+              <span className="text-[8px]">{item.label}</span>
+            </div>
+          )
+        ))}
+      </nav>
+
+      {/* Main Layout */}
+      <div className="main-layout">
+        <header className="h-16 md:h-20 flex items-center justify-between px-4 md:px-10 border-b border-border bg-[#0a0a0a]/50 backdrop-blur-md z-40">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors text-accent md:flex items-center justify-center"
+            >
+              <Menu size={24} />
+            </button>
+            <img 
+              src="https://github.com/marcellnw/paneleternalsmp/blob/main/1775664361126.png?raw=true" 
+              alt="Logo" 
+              className="w-8 h-8 md:w-10 md:h-10"
+              referrerPolicy="no-referrer"
+            />
+            <div className="font-serif text-lg md:text-xl tracking-[2px] text-accent font-bold uppercase">
+              ETERNALSMP <span className="hidden sm:inline">PANEL</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="status-badge hidden sm:flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+              Operational
+            </div>
+            <div className="text-[10px] text-text-dim uppercase tracking-widest hidden md:block">
+              v2.4.0-STABLE
+            </div>
+          </div>
+        </header>
+
+        <div className="content-area">
+          <AnimatePresence mode="wait">
+            {activePage === 'home' && (
+              <motion.div
+                key="home"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.05 }}
+                className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+              >
+                <div className="lg:col-span-2 space-y-6">
+                  <div className="rpg-card fantasy-border p-8 text-center md:text-left">
+                    <h2 className="text-3xl md:text-4xl mb-4 text-accent">Selamat Datang, Administrator</h2>
+                    <p className="text-text-dim leading-relaxed max-w-xl">
+                      Sistem manajemen pusat EternalSMP. Pantau status server, kelola quest, dan kirim pengumuman penting secara real-time.
+                    </p>
+                    <div className="flex flex-wrap gap-4 mt-8 justify-center md:justify-start">
+                      <button onClick={() => setActivePage('dashboard')} className="btn-fantasy px-8 py-3 w-auto">
+                        BUKA DASHBOARD
+                      </button>
+                      <button onClick={() => setActivePage('server')} className="btn-fantasy-outline px-8 py-3 w-auto">
+                        STATUS SERVER
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="rpg-card">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="p-3 bg-accent/10 rounded-lg text-accent">
+                          <Users size={24} />
+                        </div>
+                        <div>
+                          <div className="text-2xl font-serif text-accent">1,240</div>
+                          <div className="text-[10px] text-text-dim uppercase tracking-widest">Total Players</div>
+                        </div>
+                      </div>
+                      <div className="w-full bg-border h-1 rounded-full overflow-hidden">
+                        <div className="bg-accent h-full w-[75%]"></div>
+                      </div>
+                    </div>
+                    <div className="rpg-card">
+                      <div className="flex items-center gap-4 mb-4">
+                        <div className="p-3 bg-crimson/10 rounded-lg text-crimson">
+                          <ShieldAlert size={24} />
+                        </div>
+                        <div>
+                          <div className="text-2xl font-serif text-crimson">0</div>
+                          <div className="text-[10px] text-text-dim uppercase tracking-widest">Active Alerts</div>
+                        </div>
+                      </div>
+                      <div className="text-[10px] text-green-400 mt-2">All systems are secure.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="rpg-card">
+                    <h3 className="text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Activity size={16} className="text-accent" />
+                      Quick Actions
+                    </h3>
+                    <div className="space-y-3">
+                      <button 
+                        onClick={handleClearCache}
+                        disabled={isClearingCache}
+                        className="w-full text-left p-3 bg-white/5 hover:bg-white/10 transition-colors text-xs flex items-center justify-between group disabled:opacity-50"
+                      >
+                        {isClearingCache ? "Clearing Cache..." : "Clear Server Cache"}
+                        <RefreshCw size={14} className={`${isClearingCache ? 'animate-spin' : 'group-hover:rotate-180 transition-transform'}`} />
+                      </button>
+                      <button 
+                        onClick={handleSyncDatabase}
+                        disabled={isSyncing}
+                        className="w-full text-left p-3 bg-white/5 hover:bg-white/10 transition-colors text-xs flex flex-col gap-2 group disabled:opacity-50"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          {isSyncing ? `Syncing (${syncProgress}%)...` : "Sync Database"}
+                          <LayoutDashboard size={14} />
+                        </div>
+                        {isSyncing && (
+                          <div className="w-full bg-border h-1 rounded-full overflow-hidden">
+                            <div className="bg-accent h-full transition-all duration-300" style={{ width: `${syncProgress}%` }}></div>
+                          </div>
+                        )}
+                      </button>
+                      <button 
+                        onClick={handleGenerateReport}
+                        disabled={isGeneratingReport}
+                        className="w-full text-left p-3 bg-white/5 hover:bg-white/10 transition-colors text-xs flex items-center justify-between group disabled:opacity-50"
+                      >
+                        {isGeneratingReport ? "Generating..." : "Generate Report"}
+                        <Scroll size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="rpg-card">
+                    <h3 className="text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Cpu size={16} className="text-accent" />
+                      System Load
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-[10px] mb-1">
+                          <span>CPU USAGE</span>
+                          <span>24%</span>
+                        </div>
+                        <div className="h-1 bg-border rounded-full overflow-hidden">
+                          <div className="bg-accent h-full w-[24%]"></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-[10px] mb-1">
+                          <span>RAM USAGE</span>
+                          <span>4.2GB / 16GB</span>
+                        </div>
+                        <div className="h-1 bg-border rounded-full overflow-hidden">
+                          <div className="bg-accent h-full w-[35%]"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activePage === 'dashboard' && (
+              <motion.div
+                key="dashboard"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="grid grid-cols-1 lg:grid-cols-3 gap-10"
+              >
+                <div className="lg:col-span-2">
+                  <h2 className="text-3xl mb-2">Webhook Dispatcher</h2>
+                  <p className="text-text-dim text-sm mb-8">Broadcast high-priority notifications to Discord channels.</p>
+                  
+                  <div className="flex flex-wrap gap-2 mb-8">
+                    {(Object.keys(FORM_CONFIG) as Category[]).map((cat) => (
+                      <div
+                        key={cat}
+                        className={`tab ${currentCategory === cat ? 'active' : ''}`}
+                        onClick={() => {
+                          setCurrentCategory(cat);
+                          setFormData({});
+                        }}
+                      >
+                        {cat}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rpg-card fantasy-border space-y-5">
+                    {FORM_CONFIG[currentCategory].map((field) => {
+                      const id = field.toLowerCase().replace(/ /g, '_');
+                      const isTextarea = ['Description', 'Log Perubahan', 'Reward'].includes(field);
+                      
+                      return (
+                        <div key={field}>
+                          <label>{field}</label>
+                          {isTextarea ? (
+                            <textarea
+                              id={id}
+                              rows={4}
+                              placeholder={`Enter ${field.toLowerCase()}...`}
+                              value={formData[id] || ""}
+                              onChange={(e) => handleInputChange(id, e.target.value)}
+                            />
+                          ) : (
+                            <input
+                              type="text"
+                              id={id}
+                              placeholder={`Enter ${field.toLowerCase()}...`}
+                              value={formData[id] || ""}
+                              onChange={(e) => handleInputChange(id, e.target.value)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                    <button 
+                      className="btn-fantasy flex items-center justify-center gap-3"
+                      onClick={sendToDiscord}
+                      disabled={isSending}
+                    >
+                      {isSending ? "EXECUTING..." : (
+                        <>
+                          <Send size={20} />
+                          EXECUTE DISPATCH
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <aside className="space-y-6">
+                  <div className="rpg-card">
+                    <div className="stat-val">12ms</div>
+                    <div className="stat-label">API Latency</div>
+                  </div>
+                  <div className="activity-feed h-[400px]">
+                    <div className="stat-label mb-4">Recent Dispatches</div>
+                    {[1, 2, 3, 4].map(i => (
+                      <div key={i} className="feed-item">
+                        <div className="font-bold text-accent">Announcement Sent</div>
+                        <div className="text-[10px]">Target: #general-announcements</div>
+                        <div className="text-[9px] opacity-50">{i * 5} mins ago</div>
+                      </div>
+                    ))}
+                  </div>
+                </aside>
+              </motion.div>
+            )}
+
+            {activePage === 'server' && (
+              <motion.div
+                key="server"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-6"
+              >
+                <div className="flex justify-between items-center">
+                  <h2 className="text-3xl">Server Management</h2>
+                  <div className="flex gap-2">
+                    <button className="btn-fantasy-outline w-auto px-4 py-2 text-xs">RESTART SERVER</button>
+                    <button className="btn-fantasy w-auto px-4 py-2 text-xs">STOP SERVER</button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="rpg-card text-center">
+                    <div className="text-4xl font-serif text-accent mb-1">242</div>
+                    <div className="text-[10px] text-text-dim uppercase tracking-widest">Players Online</div>
+                  </div>
+                  <div className="rpg-card text-center">
+                    <div className="text-4xl font-serif text-green-400 mb-1">19.8</div>
+                    <div className="text-[10px] text-text-dim uppercase tracking-widest">TPS (Ticks Per Sec)</div>
+                  </div>
+                  <div className="rpg-card text-center">
+                    <div className="text-4xl font-serif text-blue-400 mb-1">99.9%</div>
+                    <div className="text-[10px] text-text-dim uppercase tracking-widest">Uptime</div>
+                  </div>
+                </div>
+
+                <div className="rpg-card fantasy-border">
+                  <h3 className="text-sm uppercase tracking-widest mb-6">Active Player List</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="border-b border-border text-text-dim">
+                          <th className="pb-3 font-normal">PLAYER</th>
+                          <th className="pb-3 font-normal">RANK</th>
+                          <th className="pb-3 font-normal">PING</th>
+                          <th className="pb-3 font-normal">LOCATION</th>
+                          <th className="pb-3 font-normal">ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/50">
+                        {[
+                          { name: 'MarcellNW', rank: 'ADMIN', ping: '12ms', loc: 'Spawn' },
+                          { name: 'Legendary_X', rank: 'MVP+', ping: '45ms', loc: 'Wilderness' },
+                          { name: 'Steve_01', rank: 'PLAYER', ping: '22ms', loc: 'Dungeon' },
+                          { name: 'Alex_Gamer', rank: 'VIP', ping: '38ms', loc: 'Market' },
+                        ].map((p, i) => (
+                          <tr key={i} className="hover:bg-white/5 transition-colors">
+                            <td className="py-4 flex items-center gap-3">
+                              <div className="w-8 h-8 bg-accent/20 rounded-full flex items-center justify-center text-accent font-bold">
+                                {p.name[0]}
+                              </div>
+                              {p.name}
+                            </td>
+                            <td className="py-4">
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${p.rank === 'ADMIN' ? 'bg-crimson/20 text-crimson' : 'bg-accent/20 text-accent'}`}>
+                                {p.rank}
+                              </span>
+                            </td>
+                            <td className="py-4 text-green-400">{p.ping}</td>
+                            <td className="py-4 text-text-dim">{p.loc}</td>
+                            <td className="py-4">
+                              <button className="text-text-dim hover:text-crimson transition-colors"><ShieldAlert size={14} /></button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activePage === 'info' && (
+              <motion.div
+                key="info"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8"
+              >
+                <h2 className="text-3xl font-serif text-accent">Info System: Feeloria</h2>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <div className="rpg-card fantasy-border">
+                      <h3 className="text-xl mb-4 text-accent flex items-center gap-2">
+                        <Users size={20} /> Gameplay System
+                      </h3>
+                      <div className="space-y-4 text-sm">
+                        <div className="glass-panel p-4 rounded-lg">
+                          <h4 className="font-bold text-gold mb-2">E. Player's Stats</h4>
+                          <ul className="list-disc list-inside text-text-dim space-y-1">
+                            <li>Vitality, Strength, Endurance, Agility, Gathering, Mastery</li>
+                            <li>Stats Level → requirement for equipment</li>
+                            <li>Stats Point → from leveling & quest</li>
+                          </ul>
+                        </div>
+                        <div className="glass-panel p-4 rounded-lg">
+                          <h4 className="font-bold text-gold mb-2">F. Adventure Leveling System</h4>
+                          <ul className="list-disc list-inside text-text-dim space-y-1">
+                            <li>Adventure Level → main progression</li>
+                            <li>Adventure XP → from: Quest, Farming, Mining, Killing mobs, Events</li>
+                          </ul>
+                        </div>
+                        <div className="glass-panel p-4 rounded-lg">
+                          <h4 className="font-bold text-gold mb-2">G. Combat System</h4>
+                          <ul className="list-disc list-inside text-text-dim space-y-1">
+                            <li>Stamina: Affected by weapon type (Heavy = more usage)</li>
+                            <li>Rage Mode: Triggered during combat, boosts damage, decreases if inactive</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rpg-card">
+                      <h3 className="text-xl mb-4 text-accent flex items-center gap-2">
+                        <ShieldAlert size={20} /> Faction System
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div className="glass-panel p-4 border-l-4 border-accent">
+                          <h4 className="font-bold mb-2">Formal Group</h4>
+                          <p className="text-text-dim">Max 10 members. Cost: 100 TAC (+50 per extra). Benefit: Protected territory.</p>
+                        </div>
+                        <div className="glass-panel p-4 border-l-4 border-text-dim">
+                          <h4 className="font-bold mb-2">Non-Formal Group</h4>
+                          <p className="text-text-dim">Free. No territory. Must follow rules.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="rpg-card fantasy-border">
+                      <h3 className="text-xl mb-4 text-accent flex items-center gap-2">
+                        <Activity size={20} /> Hierarchy Season 15
+                      </h3>
+                      <div className="overflow-hidden rounded-lg border border-border">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-white/5">
+                            <tr>
+                              <th className="p-3">ROLE</th>
+                              <th className="p-3">NAME</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/50">
+                            <tr>
+                              <td className="p-3 font-bold text-gold">Owner</td>
+                              <td className="p-3">Noble Judge → Schmitzealgi</td>
+                            </tr>
+                            <tr>
+                              <td className="p-3 font-bold text-accent" rowSpan={4}>Admin</td>
+                              <td className="p-3">AnggaDRAP1696</td>
+                            </tr>
+                            <tr><td className="p-3">Alfasyair10</td></tr>
+                            <tr><td className="p-3">AyaOffxYT</td></tr>
+                            <tr><td className="p-3">CelCelxyh</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    <div className="rpg-card">
+                      <h3 className="text-xl mb-4 text-accent flex items-center gap-2">
+                        <Terminal size={20} /> Q.o.L Features
+                      </h3>
+                      <div className="space-y-3 text-xs">
+                        <div className="flex justify-between p-2 bg-white/5 rounded">
+                          <span className="text-gold">/camera</span>
+                          <span className="text-text-dim">Custom View</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-white/5 rounded">
+                          <span className="text-gold">/forging_table</span>
+                          <span className="text-text-dim">Remote Forging</span>
+                        </div>
+                        <div className="flex justify-between p-2 bg-white/5 rounded">
+                          <span className="text-gold">/craft</span>
+                          <span className="text-text-dim">Portable Crafting</span>
+                        </div>
+                        <div className="mt-4 p-3 border border-dashed border-accent/30 rounded text-center">
+                          <span className="text-accent font-bold">Currency: TAC (Tavern Currency)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activePage === 'ai' && (
+              <motion.div
+                key="ai"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.05 }}
+                className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full"
+              >
+                <div className="lg:col-span-2 flex flex-col gap-4 h-full">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-3xl font-serif text-accent">AI Assistant</h2>
+                    <select 
+                      value={aiModel} 
+                      onChange={(e) => setAiModel(e.target.value as any)}
+                      className="bg-[#111] border border-border text-[10px] p-2 outline-none rounded-lg"
+                    >
+                      <option value="gemini">Google Gemini</option>
+                      <option value="chatgpt">OpenAI ChatGPT</option>
+                    </select>
+                  </div>
+
+                  <div className="rpg-card flex-1 flex flex-col gap-4 overflow-hidden fantasy-border">
+                    <div className="flex-1 overflow-y-auto space-y-4 p-2 custom-scrollbar">
+                      {aiHistory.length === 0 && (
+                        <div className="h-full flex flex-col items-center justify-center text-text-dim opacity-50">
+                          <Cpu size={48} className="mb-4 animate-pulse" />
+                          <p className="text-sm italic">"Greetings, Administrator. How may I assist you today?"</p>
+                        </div>
+                      )}
+                      {aiHistory.map((chat, i) => (
+                        <motion.div 
+                          key={i}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`flex ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`max-w-[80%] p-3 rounded-xl text-sm ${
+                            chat.role === 'user' 
+                              ? 'bg-accent text-black font-medium' 
+                              : 'glass-panel text-text-main border-l-4 border-accent'
+                          }`}>
+                            {chat.content}
+                          </div>
+                        </motion.div>
+                      ))}
+                      {isAiLoading && (
+                        <div className="flex justify-start">
+                          <div className="glass-panel p-3 rounded-xl flex gap-2 items-center">
+                            <div className="w-2 h-2 bg-accent rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                            <div className="w-2 h-2 bg-accent rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                          </div>
+                        </div>
+                      )}
+                      <div ref={chatEndRef} />
+                    </div>
+
+                    <div className="flex gap-2 mt-auto pt-4 border-t border-border">
+                      <input 
+                        type="text" 
+                        placeholder="Type your command..."
+                        value={aiMessage}
+                        onChange={(e) => setAiMessage(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAiChat()}
+                        className="flex-1"
+                      />
+                      <button 
+                        onClick={() => handleAiChat()}
+                        disabled={isAiLoading}
+                        className="btn-fantasy w-auto px-6 py-2 flex items-center justify-center"
+                      >
+                        <Send size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="rpg-card">
+                    <h3 className="text-sm uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Activity size={16} className="text-accent" />
+                      AI Quick Functions
+                    </h3>
+                    <div className="space-y-3">
+                      <button 
+                        onClick={() => handleAiChat("Generate a creative quest for Level 15 players involving a dragon.")}
+                        className="w-full text-left p-3 bg-white/5 hover:bg-white/10 transition-colors text-xs flex items-center justify-between group"
+                      >
+                        🎯 Generate Quest
+                        <Plus size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleAiChat("Write a professional announcement for a server maintenance scheduled for tomorrow at 10 AM.")}
+                        className="w-full text-left p-3 bg-white/5 hover:bg-white/10 transition-colors text-xs flex items-center justify-between group"
+                      >
+                        📢 Generate Announcement
+                        <Send size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleAiChat("Fix this server message: 'The server will be down for a bit, sorry for the trouble.' Make it sound more professional.")}
+                        className="w-full text-left p-3 bg-white/5 hover:bg-white/10 transition-colors text-xs flex items-center justify-between group"
+                      >
+                        🛠️ Fix Server Message
+                        <RefreshCw size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rpg-card">
+                    <h3 className="text-sm uppercase tracking-widest mb-4">Chat Controls</h3>
+                    <button 
+                      onClick={() => {
+                        setAiHistory([]);
+                        localStorage.removeItem('eternal_ai_history');
+                        addToast("Chat history cleared");
+                      }}
+                      className="btn-fantasy-outline w-full text-xs flex items-center justify-center gap-2"
+                    >
+                      <Trash2 size={14} /> CLEAR HISTORY
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {activePage === 'gallery' && (
+              <motion.div
+                key="gallery"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-10"
+              >
+                <div className="flex justify-between items-center">
+                  <h2 className="text-3xl font-serif text-accent">Gallery System</h2>
+                  <div className="text-[10px] text-text-dim uppercase tracking-widest">100 Items Loaded</div>
+                </div>
+
+                {/* Auto-slide Carousel */}
+                <div className="overflow-hidden glass-panel py-6 relative">
+                  <motion.div 
+                    style={{ y: parallaxY }}
+                    className="carousel-track animate-scroll"
+                  >
+                    {[...Array(20)].map((_, i) => (
+                      <div key={i} className="w-[250px] h-[150px] flex-shrink-0 rounded-xl overflow-hidden border border-border group">
+                        <img 
+                          src={`https://picsum.photos/seed/eternal_${i}/400/300`} 
+                          alt="Carousel" 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                        />
+                      </div>
+                    ))}
+                  </motion.div>
+                </div>
+
+                {/* Infinite Grid */}
+                <div className="gallery-grid">
+                  {[...Array(100)].map((_, i) => (
+                    <motion.div 
+                      key={i}
+                      initial={{ opacity: 0, scale: 0.5 }}
+                      whileInView={{ opacity: 1, scale: 1 }}
+                      viewport={{ once: true, margin: "-50px" }}
+                      transition={{ 
+                        type: "spring", 
+                        stiffness: 260, 
+                        damping: 20,
+                        delay: (i % 5) * 0.1 
+                      }}
+                      className="gallery-card group"
+                    >
+                      <img 
+                        src={`https://picsum.photos/seed/gallery_${i}/300/300`} 
+                        alt={`Gallery ${i}`}
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                      />
+                      <div className="absolute bottom-0 left-0 w-full p-2 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[8px] text-accent uppercase font-bold">Eternal Asset #{i + 1}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        <footer className="h-10 border-t border-border flex items-center justify-center text-[9px] md:text-[11px] text-text-dim uppercase tracking-wider bg-[#0a0a0a]/50 backdrop-blur-md">
+          &copy; 2024-2026 ETERNALSMP SERVER &bull; SECURE ADMINISTRATIVE INTERFACE
+        </footer>
+      </div>
+
+      {/* Report Modal */}
+      <AnimatePresence>
+        {showReportModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="modal-overlay"
+            onClick={() => setShowReportModal(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="modal-content"
+              onClick={e => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setShowReportModal(false)}
+                className="absolute top-4 right-4 text-text-dim hover:text-accent transition-colors"
+              >
+                <X size={24} />
+              </button>
+              <h2 className="text-2xl font-serif text-accent mb-6">System Performance Report</h2>
+              <div className="space-y-6 text-sm text-text-dim">
+                <div className="glass-panel p-6 rounded-xl border-accent/20">
+                  <div className="flex justify-between mb-4">
+                    <span className="font-bold text-text-main">Report ID:</span>
+                    <span>#RP-2026-04-15</span>
+                  </div>
+                  <div className="flex justify-between mb-4">
+                    <span className="font-bold text-text-main">Generated By:</span>
+                    <span>System Admin</span>
+                  </div>
+                  <div className="h-[1px] bg-border my-4"></div>
+                  <p className="leading-relaxed">
+                    This report summarizes the server performance over the last 24 hours. 
+                    Average TPS remained stable at 19.8. Peak player count reached 342 at 20:00 UTC.
+                    No critical errors were logged during this period.
+                  </p>
+                </div>
+                <div className="flex gap-4">
+                  <button className="btn-fantasy flex-1 text-xs">DOWNLOAD PDF</button>
+                  <button className="btn-fantasy-outline flex-1 text-xs">PRINT REPORT</button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="fixed top-24 right-4 z-[200] space-y-2">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className={`p-4 rounded shadow-2xl flex items-center gap-3 min-w-[250px] border ${
+                toast.type === 'success' ? 'bg-green-900/20 border-green-500/50 text-green-400' : 'bg-crimson/20 border-crimson/50 text-crimson'
+              } backdrop-blur-md`}
+            >
+              {toast.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+              <span className="text-xs font-bold uppercase tracking-wider">{toast.message}</span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
